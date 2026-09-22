@@ -3,9 +3,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,45 +44,55 @@ jobs:
           AppName={#MyAppName}
           AppVersion={#MyAppVersion}
           AppPublisher={#MyAppPublisher}
-          DefaultDirName={autopf}Profesjonalizator AI
+          DefaultDirName={autopf}\Profesjonalizator AI
           DefaultGroupName=Profesjonalizator AI
-          UninstallDisplayIcon={app}{#MyAppExeName}
+          UninstallDisplayIcon={app}\{#MyAppExeName}
           OutputDir=installer
           OutputBaseFilename=ProfesjonalizatorAI-Setup
           Compression=lzma2
           SolidCompression=yes
           WizardStyle=modern
-          ArchitecturesInstallIn64BitMode=x64compatible
           PrivilegesRequired=lowest
           DisableProgramGroupPage=yes
           Uninstallable=yes
           SetupLogging=yes
 
           [Files]
-          Source: "distProfesjonalizatorAI.exe"; DestDir: "{app}"; Flags: ignoreversion
+          Source: "dist\ProfesjonalizatorAI.exe"; DestDir: "{app}"; Flags: ignoreversion
 
           [Icons]
-          Name: "{autoprograms}Profesjonalizator AI"; Filename: "{app}{#MyAppExeName}"
-          Name: "{autodesktop}Profesjonalizator AI"; Filename: "{app}{#MyAppExeName}"
+          Name: "{autoprograms}\Profesjonalizator AI"; Filename: "{app}\{#MyAppExeName}"
+          Name: "{autodesktop}\Profesjonalizator AI"; Filename: "{app}\{#MyAppExeName}"
 
           [Run]
-          Filename: "{app}{#MyAppExeName}"; Description: "Uruchom Profesjonalizator AI"; Flags: nowait postinstall skipifsilent
+          Filename: "{app}\{#MyAppExeName}"; Description: "Uruchom Profesjonalizator AI"; Flags: nowait postinstall skipifsilent
           '@ | Out-File -FilePath installer.iss -Encoding utf8
 
       - name: Build installer
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force installer | Out-Null
-          & "${env:ProgramFiles(x86)}Inno Setup 6ISCC.exe" installer.iss
+          $iscc = Get-ChildItem "C:\Program Files (x86)\Inno Setup *\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $iscc) {
+            $iscc = Get-ChildItem "C:\Program Files\Inno Setup *\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+          }
+          if (-not $iscc) {
+            throw "Nie znaleziono ISCC.exe po instalacji Inno Setup."
+          }
+          Write-Host "Inno Setup: $iscc"
+          & $iscc "installer.iss"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Inno Setup zwrócił kod $LASTEXITCODE."
+          }
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
           name: ProfesjonalizatorAI-Installer
-          path: installerProfesjonalizatorAI-Setup.exe
+          path: installer\ProfesjonalizatorAI-Setup.exe
 
       - name: Upload portable EXE
         uses: actions/upload-artifact@v4
         with:
           name: ProfesjonalizatorAI-Portable
-          path: distProfesjonalizatorAI.exe
+          path: dist\ProfesjonalizatorAI.exe
