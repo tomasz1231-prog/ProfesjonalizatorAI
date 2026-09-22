@@ -1,4 +1,4 @@
-name: Build Windows EXE
+name: Build Windows Installer
 on:
   push:
     branches: [main]
@@ -9,18 +9,78 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - name: Install
+
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-      - name: Build
+          python -m pip install pyinstaller
+
+      - name: Build portable EXE
         run: pyinstaller --noconfirm --clean --onefile --windowed --name ProfesjonalizatorAI --collect-all customtkinter ProfesjonalizatorAI.py
-      - name: Upload EXE
+
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup -y --no-progress
+
+      - name: Create installer script
+        shell: powershell
+        run: |
+          @'
+          #define MyAppName "Profesjonalizator AI"
+          #define MyAppVersion "2.0.0"
+          #define MyAppPublisher "Profesjonalizator AI"
+          #define MyAppExeName "ProfesjonalizatorAI.exe"
+
+          [Setup]
+          AppId={{9F4A45B2-3A1F-4B12-8AA3-5D29B1A3E7C4}
+          AppName={#MyAppName}
+          AppVersion={#MyAppVersion}
+          AppPublisher={#MyAppPublisher}
+          DefaultDirName={autopf}Profesjonalizator AI
+          DefaultGroupName=Profesjonalizator AI
+          UninstallDisplayIcon={app}{#MyAppExeName}
+          OutputDir=installer
+          OutputBaseFilename=ProfesjonalizatorAI-Setup
+          Compression=lzma2
+          SolidCompression=yes
+          WizardStyle=modern
+          ArchitecturesInstallIn64BitMode=x64compatible
+          PrivilegesRequired=lowest
+          DisableProgramGroupPage=yes
+          Uninstallable=yes
+          SetupLogging=yes
+
+          [Files]
+          Source: "distProfesjonalizatorAI.exe"; DestDir: "{app}"; Flags: ignoreversion
+
+          [Icons]
+          Name: "{autoprograms}Profesjonalizator AI"; Filename: "{app}{#MyAppExeName}"
+          Name: "{autodesktop}Profesjonalizator AI"; Filename: "{app}{#MyAppExeName}"
+
+          [Run]
+          Filename: "{app}{#MyAppExeName}"; Description: "Uruchom Profesjonalizator AI"; Flags: nowait postinstall skipifsilent
+          '@ | Out-File -FilePath installer.iss -Encoding utf8
+
+      - name: Build installer
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force installer | Out-Null
+          & "${env:ProgramFiles(x86)}Inno Setup 6ISCC.exe" installer.iss
+
+      - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
-          name: ProfesjonalizatorAI-Windows
-          path: dist/ProfesjonalizatorAI.exe
+          name: ProfesjonalizatorAI-Installer
+          path: installerProfesjonalizatorAI-Setup.exe
+
+      - name: Upload portable EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: ProfesjonalizatorAI-Portable
+          path: distProfesjonalizatorAI.exe
